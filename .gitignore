@@ -1,0 +1,6 @@
+Binaries/*
+*.sln
+Saved/*
+Plugins/*
+.vs/*
+Intermediate/*
