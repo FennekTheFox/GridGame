@@ -3,8 +3,7 @@
 #include "GridActionBase.h"
 #include "GridAction_Attack.generated.h"
 
-
-
+class UHexGridTile;
 
 UCLASS(BlueprintType, Blueprintable, Category = "Grid Actions")
 class UGridAction_Attack final : public UGridActionBase
@@ -13,8 +12,6 @@ class UGridAction_Attack final : public UGridActionBase
 
 	UGridAction_Attack();
 	~UGridAction_Attack();
-
-
 
 	//BEGIN UGridActionBase
 	bool InitiateAction(UHexGridTile* InitTile) override;
@@ -31,13 +28,11 @@ private:
 	UFUNCTION()
 		void ActionFinishedCallback();
 
-	TArray<UHexGridTile*> GetAllAttackableTiles();
-
 private:
 	UPROPERTY()
 		class UGridAttackComponent* AttackComponent;
 	UPROPERTY()
-		class UGridMovementComponent* MovementComponent;
+		TArray<class UHexGridTile*> VisualizedPath;
 	UPROPERTY()
-		TArray<class UHexGridTile*> CachedVisualizedTiles;
+		UHexGridTile* VisualizedTarget = nullptr;
 };

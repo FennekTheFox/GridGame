@@ -3,6 +3,7 @@
 #include "Grid/GridPathFinder.h"
 #include "Kismet/GameplayStatics.h"
 #include "Grid/GridActions/GridAction_Move.h"
+#include "../Actors/GridUnit.h"
 
 
 UGridMovementComponent::UGridMovementComponent()
@@ -69,6 +70,21 @@ bool UGridMovementComponent::MoveToTile(UHexGridTile* TargetTile)
 	return false;
 }
 
+bool UGridMovementComponent::GetPathTo(UHexGridTile* TargetTile, TArray<UHexGridTile*>& OutPath)
+{
+	ensure(PathFinder);
+	ensure(TargetTile);
+
+
+	FGridPathFinderRequest Request;
+	Request.Sender = GetOwner();
+	Request.Start = CurrentTile;
+	Request.Goal = TargetTile;
+	Request.MaxCost = MovementRadius;
+
+	return PathFinder->FindPath(Request, OutPath);
+}
+
 void UGridMovementComponent::AbortMovement()
 {
 	bInMotion = false;
@@ -97,8 +113,48 @@ bool UGridMovementComponent::CanMoveToTile(UHexGridTile* TargetTile, TArray<UHex
 	Request.Goal = TargetTile;
 	Request.MaxCost = MovementRadius;
 
-	if (Grid->FindPath(Request, PotentialPath))
+	if (PathFinder->FindPath(Request, PotentialPath))
 		return true;
+	return false;
+}
+
+bool UGridMovementComponent::CanPassTile(UHexGridTile* InTile)
+{
+	AActor* OccupyingUnit = InTile->GetOccupyingUnit();
+
+	if (!OccupyingUnit)
+	{
+		//Tile is free and can be passed by anyone
+		return true;
+	}
+	else
+	{
+		UGridMovementComponent* OtherGMC = OccupyingUnit->FindComponentByClass<UGridMovementComponent>();
+
+		ensureMsgf(OtherGMC, TEXT("A tile was occupied by an actor without a grid movement component."));
+
+		if (OtherGMC)
+		{
+			return OtherGMC->LetsThisPass(this);
+		}
+		else
+		{
+			return false;
+		}
+	}
+}
+
+bool UGridMovementComponent::LetsThisPass(UGridMovementComponent* InGMC)
+{
+	AGridUnit* OwnerAsUnit = Cast<AGridUnit>(GetOwner());
+
+	//The GMC's owner is a grid unit that may allow passage based on alignment
+	if (OwnerAsUnit)
+	{
+		return (bool)*(OwnerAsUnit->UnitBlocking.Find(OwnerAsUnit->Alignment));
+	}
+
+	//The GMC's owner is a different kind of actor, dont allow passage
 	return false;
 }
 
@@ -121,19 +177,23 @@ TArray<UHexGridTile*> UGridMovementComponent::GetAllReachableTiles(TArray<UHexGr
 
 void UGridMovementComponent::SetShowMovableArea(bool bShow)
 {
-	TArray<UHexGridTile*> ReachableTiles;
-	GetAllReachableTiles(ReachableTiles);
-
-	for (UHexGridTile* Tile : ReachableTiles)
+	if (bShow)
 	{
-		if (bShow)
+		SetShowMovableArea(false);
+		GetAllReachableTiles(ShownReachableTiles);
+		
+		for (UHexGridTile* Tile : ShownReachableTiles)
 		{
 			Tile->SetTileState(this, ETileState::ShowAsMovable, ETileStateLayers::HoverMovement);
 		}
-		else
+	}
+	else
+	{
+		for (UHexGridTile* Tile : ShownReachableTiles)
 		{
 			Tile->ResetTileState(this);
 		}
+		ShownReachableTiles.Reset();
 	}
 }
 
@@ -192,7 +252,8 @@ void UGridMovementComponent::OnRegister()
 {
 	Super::OnRegister();
 
-	PathFinder = NewObject<UGridPathFinderAgent>(this, TEXT("GridMovementComponent_PathFinder"));
+	PathFinder = NewObject<UGridMovementAgent>(this, TEXT("GridMovementComponent_PathFinder"));
+	PathFinder->GMC = this;
 }
 
 void UGridMovementComponent::OnUnregister()

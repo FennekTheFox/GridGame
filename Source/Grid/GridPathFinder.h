@@ -3,14 +3,16 @@
 #include "GameplayTagContainer.h"
 #include "GridPathFinder.generated.h"
 
+class UGridPathFinderAgent;
 
 struct FAStarHelper
 {
 public:
-	FAStarHelper(UHexGridTile* From, UHexGridTile* To, AGridActor* InGrid)
+	FAStarHelper(UHexGridTile* From, UHexGridTile* To, AGridActor* InGrid, UGridPathFinderAgent* InAgent)
 		:Start(From)
 		, Goal(To)
 		, Grid(InGrid)
+		, Agent(InAgent)
 	{
 		Comparer.FCost = &FCost;
 
@@ -46,6 +48,7 @@ private:
 	UHexGridTile* Start;
 	UHexGridTile* Goal;
 	AGridActor* Grid;
+	UGridPathFinderAgent* Agent;
 };
 
 
@@ -80,6 +83,7 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, AdvancedDisplay, Category = "HexGridPathFindingRequest")
 		FGameplayTagContainer ExtraTags;
+
 
 	bool IsValid();
 };
@@ -126,6 +130,14 @@ public:
 	virtual int32 Heuristic_Implementation(UHexGridTile* From, UHexGridTile* To);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "HexGridPathFinder")
+		bool CanPassThroughTile(UHexGridTile* Tile);
+	virtual bool CanPassThroughTile_Implementation(UHexGridTile* Tile);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "HexGridPathFinder")
+		bool CanStandOnTile(UHexGridTile* Tile);
+	virtual bool CanStandOnTile_Implementation(UHexGridTile* Tile);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "HexGridPathFinder")
 		void Reset();
 	virtual void Reset_Implementation() {};
 
@@ -138,6 +150,24 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 		AGridActor* GridActor;
+};
+
+UCLASS()
+class UGridMovementAgent : public UGridPathFinderAgent
+{
+	GENERATED_BODY()
+
+
+public:
+	bool CanPassThroughTile_Implementation(UHexGridTile* Tile) override;
+
+
+
+	bool CanStandOnTile_Implementation(UHexGridTile* Tile) override;
+
+public:
+	UPROPERTY()
+		class UGridMovementComponent* GMC;
 };
 
 

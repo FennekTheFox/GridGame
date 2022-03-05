@@ -2,6 +2,7 @@
 
 #include "GridActor.h"
 #include "GridUtilityLibrary.h"
+#include "GridComponents/GridMovementComponent.h"
 
 
 bool FAStarHelper::Step()
@@ -27,22 +28,25 @@ bool FAStarHelper::Step()
 
 	for (int i = 0; i < Neighbours.Num(); i++)
 	{
-		UHexGridTile* Next = Neighbours[i];
+		UHexGridTile* UndiscoveredNeighbour = Neighbours[i];
 
-		if (CloseSet.Contains(Next)) continue;
-		int NewCost = GCost[Current] + DistanceHeuristic(Current, Next);
+		if (CloseSet.Contains(UndiscoveredNeighbour)) continue;
+		//If we cant pass through the tile, dont consider it a valid tile for a path
+		if (!Agent->CanPassThroughTile(UndiscoveredNeighbour)) continue;
 
-		if (!GCost.Contains(Next) || NewCost < GCost[Next])
+		int NewCost = GCost[Current] + DistanceHeuristic(Current, UndiscoveredNeighbour);
+
+		if (!GCost.Contains(UndiscoveredNeighbour) || NewCost < GCost[UndiscoveredNeighbour])
 		{
-			GCost.FindOrAdd(Next, NewCost);
-			FCost.FindOrAdd(Next, NewCost + DistanceHeuristic(Next, Goal));
+			GCost.FindOrAdd(UndiscoveredNeighbour, NewCost);
+			FCost.FindOrAdd(UndiscoveredNeighbour, NewCost + DistanceHeuristic(UndiscoveredNeighbour, Goal));
 
-			if (!OpenSet.Contains(Next))
+			if (!OpenSet.Contains(UndiscoveredNeighbour))
 			{
-				OpenSet.HeapPush(Next, Comparer);
+				OpenSet.HeapPush(UndiscoveredNeighbour, Comparer);
 			}
 
-			CameFrom.FindOrAdd(Next, Current);
+			CameFrom.FindOrAdd(UndiscoveredNeighbour, Current);
 		}
 	}
 
@@ -122,7 +126,7 @@ bool UGridPathFinderAgent::IsReachable_Implementation(const FGridPathFinderReque
 
 int32 UGridPathFinderAgent::GetCost_Implementation(UHexGridTile* From, UHexGridTile* To)
 {
-	return UGridUtilityLibrary::GetHexDistance(From->Coords, To->Coords);
+	return UGridUtilityLibrary::GetHexDistance_FromTiles(From, To);
 };
 
 
@@ -131,10 +135,21 @@ int32 UGridPathFinderAgent::Heuristic_Implementation(UHexGridTile* From, UHexGri
 	return GetCost(From, To);
 }
 
+bool UGridPathFinderAgent::CanPassThroughTile_Implementation(UHexGridTile* Tile)
+{
+	return true;
+}
+
+bool UGridPathFinderAgent::CanStandOnTile_Implementation(UHexGridTile* Tile)
+{
+	return true;
+}
+
 bool UGridPathFinderAgent::FindPath(const FGridPathFinderRequest InRequest, TArray<UHexGridTile*>& Path)
 {
 	Request = InRequest;
-	if (!Request.IsValid() || !GridActor)
+
+	if (!Request.IsValid() || !GridActor || !CanStandOnTile_Implementation(Request.Goal))
 	{
 		return false;
 	}
@@ -142,7 +157,7 @@ bool UGridPathFinderAgent::FindPath(const FGridPathFinderRequest InRequest, TArr
 	Path.Reset();
 	bool Success = false;
 
-	FAStarHelper AStarHelper(Request.Start, Request.Goal, GridActor);
+	FAStarHelper AStarHelper(Request.Start, Request.Goal, GridActor, this);
 
 	int32 Step = 0;
 	while (!Success)
@@ -227,4 +242,14 @@ FGridPathFinderRequest::FGridPathFinderRequest()
 bool FGridPathFinderRequest::IsValid()
 {
 	return (Start && Goal);
+}
+
+bool UGridMovementAgent::CanPassThroughTile_Implementation(UHexGridTile* Tile)
+{
+	return GMC->CanPassTile(Tile);
+}
+
+bool UGridMovementAgent::CanStandOnTile_Implementation(UHexGridTile* Tile)
+{
+	return (Tile->GetOccupyingUnit() == nullptr || Tile->GetOccupyingUnit() == Request.Sender);
 }

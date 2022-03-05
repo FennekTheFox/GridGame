@@ -31,6 +31,8 @@ enum ETileState
 	ShowAsAttackable,
 	ShowAsPath,
 	ShowAsInvalid,
+	ShowAsAttackTarget_Valid,
+	ShowAsAttackTarget_Invalid,
 };
 
 USTRUCT()
@@ -156,6 +158,10 @@ public:
 		UMaterialInterface* PathIndicationMaterial;
 	UPROPERTY(EditAnywhere, Category = "GridSettings")
 		UMaterialInterface* InvalidMaterial;
+	UPROPERTY(EditAnywhere, Category = "GridSettings")
+		UMaterialInterface* ValidAttackMaterial;
+	UPROPERTY(EditAnywhere, Category = "GridSettings")
+		UMaterialInterface* InvalidAttackMaterial;
 
 	//Object that paints the grid, public so that tiles can access it and request an update
 		UPROPERTY()

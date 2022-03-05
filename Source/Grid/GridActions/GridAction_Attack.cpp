@@ -1,7 +1,6 @@
 #include "GridAction_Attack.h"
 #include "Grid/GridComponents/GridAttackComponent.h"
 #include "Grid/GridComponents/GridMovementComponent.h"
-#include "../GridUtilityLibrary.h"
 
 #define LOCTEXT_NAMESPACE "ActionBase"
 
@@ -22,112 +21,119 @@ bool UGridAction_Attack::InitiateAction(UHexGridTile* InitTile)
 {
 	AttackComponent = Cast<UGridAttackComponent>(GetOuter());
 	ensure(AttackComponent);
-	MovementComponent = AttackComponent->GetOwner()->FindComponentByClass<UGridMovementComponent>();
 
 	return AttackComponent->IsValidLowLevel();
 }
 
 bool UGridAction_Attack::ExecuteAction(UHexGridTile* TargetTile)
 {
+	ensureMsgf(AttackComponent, TEXT("Trying to execute action Attack, but ActionComponent was null. Was action aborted but not cleaned up?"));
+
+
+	if (AttackComponent)
+	{
+		OnActionStarted.Broadcast(this);
+		AttackComponent->AttackTile(TargetTile);
+		AttackComponent->OnComplete.AddDynamic(this, &UGridAction_Attack::ActionFinishedCallback);
+		return true;
+	}
 	return false;
 }
 
 void UGridAction_Attack::AbortAction()
 {
-
+	AttackComponent = nullptr;
 }
 
 bool UGridAction_Attack::CanExecuteAction(UHexGridTile* CheckTile)
 {
+	ensureMsgf(AttackComponent, TEXT("Trying to check if action Attack can be executed, but AttackComponent was null. Was action aborted but not cleaned up?"));
+
+	//Check if theres a valid target on the target tile
+	AActor* OccupyingUnit = CheckTile->GetOccupyingUnit();
+	AActor* Owner = AttackComponent->GetOwner();
+
+	if (!OccupyingUnit || OccupyingUnit == Owner) return false;
+
+	if (AttackComponent)
+	{
+		return AttackComponent->CanAttackTile(CheckTile);
+	}
+
 	return false;
 }
 
 void UGridAction_Attack::UpdateVisualization(UHexGridTile* PotentialTarget)
 {
+	if (AttackComponent)
+	{
+		//Clean up vizualization
+		for (UHexGridTile* tile : VisualizedPath)
+		{
+			tile->ResetTileState(this);
+		}
+		if (VisualizedTarget)
+		{
+			VisualizedTarget->ResetTileState(this);
+			VisualizedTarget = nullptr;
+		}
 
+		//Visualise Attack only if its not the location of the owner
+		if (PotentialTarget->GetOccupyingUnit() == AttackComponent->GetOwner()) return;
+
+		if (AttackComponent->GetPathToClosestTileToAttackFrom(PotentialTarget, VisualizedPath))
+		{
+			for (UHexGridTile* tile : VisualizedPath)
+			{
+				tile->SetTileState(this, ShowAsPath, ETileStateLayers::ShowPath);
+			}
+		}
+
+		//Visualise the target tile based on its executability
+		if (CanExecuteAction(PotentialTarget))
+		{
+			PotentialTarget->SetTileState(this, ShowAsAttackTarget_Valid, ETileStateLayers::ShowPath);
+		}
+		else
+		{
+			PotentialTarget->SetTileState(this, ShowAsAttackTarget_Invalid, ETileStateLayers::ShowPath);
+		}
+		VisualizedTarget = PotentialTarget;
+	}
 }
 
 void UGridAction_Attack::ActionFinishedCallback()
 {
-
-}
-
-TArray<UHexGridTile*> UGridAction_Attack::GetAllAttackableTiles()
-{
-	TArray<UHexGridTile*> ReachableTiles, AttackableTiles;
-
-	if (MovementComponent)
+	for (UHexGridTile* Tile : VisualizedPath)
 	{
-		MovementComponent->GetAllReachableTiles(ReachableTiles);
-	}
-	ReachableTiles.AddUnique(MovementComponent->CurrentTile);
-
-
-	//Iterate through all reachable tiles and get all attackable tiles
-	for (UHexGridTile* ReachableTile : ReachableTiles)
-	{
-		TArray<UHexGridTile*> OpenTiles, ClosedTiles;
-		ReachableTile->GetNeighbours(OpenTiles);
-
-		//for (int x = -AttackComponent->MaximumRange; x <= AttackComponent->MaximumRange; x++)
-		//{
-		//	for (int y = -AttackComponent->MaximumRange; y <= AttackComponent->MaximumRange; y++)
-		//	{
-		//		FIntVector
-		//	}
-		//}
-
-		while (OpenTiles.Num() > 0)
-		{
-			UHexGridTile* current  = OpenTiles[0];
-			int32 distance = UGridUtilityLibrary::GetHexDistance(current->Coords, ReachableTile->Coords);
-
-			//Add the tile to attackable tiles, if its within the attack range
-			if (distance <= AttackComponent->MaximumRange)
-			{
-				if(distance >= AttackComponent->MinimumRange)
-					AttackableTiles.AddUnique(current);
-				//Tile has been processed, move it from open to closed set
-				OpenTiles.Remove(current);
-				ClosedTiles.Add(current);
-			}
-
-			//If we're not at the maximum distance yet, add all unknown neighbours to the open tiles
-			if (distance < AttackComponent->MaximumRange)
-			{
-				TArray<UHexGridTile*> DirectNeighbours;
-				current->GetNeighbours(DirectNeighbours);
-
-				for (UHexGridTile* directNeighbour : DirectNeighbours)
-				{
-					//Only add it if the neighbour is not known
-					if (!ClosedTiles.Contains(directNeighbour) && !OpenTiles.Contains(directNeighbour))
-					{
-						OpenTiles.Add(directNeighbour);
-					}
-				}
-			}
-		}
+		Tile->ResetTileState(this);
 	}
 
-	return AttackableTiles;
+	if(VisualizedTarget)
+		VisualizedTarget->ResetTileState(this);
+
+	OnActionFinished.Broadcast(this);
 }
+
+
 
 void UGridAction_Attack::ShowHoveredVisualization(UHexGridTile* PotentialTarget)
 {
-	CachedVisualizedTiles = GetAllAttackableTiles();
+	ensure(AttackComponent);
 
-	for (UHexGridTile* tile : CachedVisualizedTiles)
+	if (AttackComponent)
 	{
-		tile->SetTileState(this, ShowAsAttackable, ETileStateLayers::HoverAttack);
+		AttackComponent->SetShowAttackableArea(true);
 	}
 }
 
 void UGridAction_Attack::HideHoveredVisualization()
 {
-	for (UHexGridTile* tile : CachedVisualizedTiles)
+	ensure(AttackComponent);
+
+	if (AttackComponent)
 	{
-		tile->ResetTileState(this);
+		AttackComponent->SetShowAttackableArea(false);
 	}
 }
 

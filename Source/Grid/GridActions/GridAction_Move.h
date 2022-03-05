@@ -27,10 +27,8 @@ class UGridAction_Move final : public UGridActionBase
 
 private:
 	UFUNCTION()
-	void ActionFinishedCallback();
-
+		void ActionFinishedCallback();
 	void ShowHoveredVisualization(UHexGridTile* PotentialTarget) override;
-
 	void HideHoveredVisualization() override;
 
 

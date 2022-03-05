@@ -158,7 +158,7 @@ void AGridActor::CreateGrid()
 	{
 		for (int y = -GridRadius; y <= GridRadius; y++)
 		{
-			if(UGridUtilityLibrary::GetHexDistance(FIntVector(0,0,0), FIntVector(x, y, 0)) <= GridRadius )
+			if(UGridUtilityLibrary::GetHexDistance_FromCoords(FIntVector(0,0,0), FIntVector(x, y, 0)) <= GridRadius )
 				CreateTilesAtCoordinates(FIntPoint(x, y));
 		}
 	}
@@ -320,6 +320,8 @@ UMaterialInterface* UHexGridTile::GetTileMaterial()
 	case ETileState::ShowAsInvalid: return Grid->InvalidMaterial;
 	case ETileState::ShowAsMovable: return Grid->MovableMaterial;
 	case ETileState::ShowAsAttackable: return Grid->AttackableMaterial;
+	case ETileState::ShowAsAttackTarget_Invalid: return Grid->InvalidAttackMaterial;
+	case ETileState::ShowAsAttackTarget_Valid: return Grid->ValidAttackMaterial;
 	}
 	return nullptr;
 }

@@ -7,6 +7,24 @@ class UGridActionBase;
 class UGridMovementComponent;
 class USceneComponent;
 
+
+
+UENUM()
+enum EUnitBlocking
+{
+	Block = 0,
+	LetPass = 1
+};
+
+UENUM()
+enum EUnitAlignment
+{
+	Player,
+	Enemy,
+	Neutral,
+	Friendly
+};
+
 UCLASS(Blueprintable, BlueprintType)
 class AGridUnit : public APawn, public IGridInteractable
 {
@@ -16,7 +34,18 @@ public:
 	AGridUnit();
 	~AGridUnit();
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite);
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Unit Properties")
+		TEnumAsByte<EUnitAlignment> Alignment;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Unit Properties")
+		TMap<TEnumAsByte<EUnitAlignment>, TEnumAsByte<EUnitBlocking>> UnitBlocking =
+	{
+		{Player, LetPass},
+		{Enemy, LetPass},
+		{Neutral, LetPass},
+		{Friendly, LetPass}
+	};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Components");
 		UGridMovementComponent* GMC;
 
 

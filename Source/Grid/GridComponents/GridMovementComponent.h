@@ -9,13 +9,12 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGridMovementDelegate);
 
-
 UENUM()
 enum EGridMovementState
 {
-	Idle, 
+	Idle,
 	Walking,
-	Jumping, 
+	Jumping,
 	Landing,
 };
 
@@ -33,6 +32,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 		bool MoveToTile(UPARAM(ref)UHexGridTile* TargetTile);
 	UFUNCTION(BlueprintCallable)
+		bool GetPathTo(UPARAM(ref)UHexGridTile* TargetTile, TArray<UHexGridTile*>& OutPath);
+	UFUNCTION(BlueprintCallable)
 		void AbortMovement();
 	UFUNCTION(BlueprintCallable)
 		void PauseMovement();
@@ -40,6 +41,10 @@ public:
 		void ResumeMovement();
 	UFUNCTION(BlueprintPure)
 		bool CanMoveToTile(UPARAM(ref)UHexGridTile* TargetTile, TArray<UHexGridTile*>& PotentialPath);
+	UFUNCTION(BlueprintPure)
+		bool CanPassTile(UHexGridTile* InTile);
+	UFUNCTION(BlueprintPure)
+		bool LetsThisPass(UGridMovementComponent* InGMC);
 	UFUNCTION(BlueprintPure)
 		TArray<UHexGridTile*> GetAllReachableTiles(TArray<UHexGridTile*>& ReachableTiles);
 	UFUNCTION(BlueprintCallable)
@@ -61,6 +66,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Movement Settings")
 		int32 MovementRadius = 10;
 
+
 	UPROPERTY(BlueprintAssignable)
 		FGridMovementDelegate OnComplete;
 
@@ -71,7 +77,7 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 		AGridActor* Grid;
 	UPROPERTY(BlueprintReadOnly)
-		UGridPathFinderAgent* PathFinder;
+		UGridMovementAgent* PathFinder;
 
 
 private:
@@ -83,6 +89,7 @@ private:
 	FVector CurrentTileLoc;
 	float DistanceToTravel;
 	float TimePassed;
+	TArray<UHexGridTile*> ShownReachableTiles;
 
 protected:
 	void OnRegister() override;

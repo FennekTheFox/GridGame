@@ -22,11 +22,12 @@ bool UGridAction_Move::InitiateAction(UHexGridTile* InitTile)
 
 bool UGridAction_Move::ExecuteAction(UHexGridTile* TargetTile)
 {
-	ensureMsgf(MovementComponent, TEXT("Trying to execute action Move but action movement was not initiated. Was action aborted but not discarded?"));
+	ensureMsgf(MovementComponent, TEXT("Trying to execute action Move, but MovementComponent was null. Was action aborted but not cleaned up?"));
+
+	OnActionStarted.Broadcast(this);
 
 	if (MovementComponent)
 	{
-		OnActionStarted.Broadcast(this);
 		MovementComponent->MoveToTile(TargetTile);
 		MovementComponent->OnComplete.AddDynamic(this, &UGridAction_Move::ActionFinishedCallback);
 		return true;
@@ -42,7 +43,7 @@ void UGridAction_Move::AbortAction()
 
 bool UGridAction_Move::CanExecuteAction(UHexGridTile* TargetTile)
 {
-	ensureMsgf(MovementComponent, TEXT("Trying to check if action Move can be executed, but action movement was not initiated. Was action aborted but not discarded?"));
+	ensureMsgf(MovementComponent, TEXT("Trying to check if action Move can be executed, but MovementComponent was null. Was action aborted but not cleaned up?"));
 
 	if (MovementComponent)
 	{
@@ -75,7 +76,7 @@ void UGridAction_Move::UpdateVisualization(UHexGridTile* PotentialTarget)
 		}
 		else
 		{
-			PotentialTarget->SetTileState(this, ETileState::ShowAsInvalid, ETileStateLayers::ShowPath);
+			//PotentialTarget->SetTileState(this, ETileState::ShowAsInvalid, ETileStateLayers::ShowPath);
 			CachedPath.Add(PotentialTarget);
 		}
 		CachedPath = PotentialPath;
@@ -93,6 +94,7 @@ void UGridAction_Move::ActionFinishedCallback()
 	OnActionFinished.Broadcast(this);
 	MovementComponent->OnComplete.RemoveAll(this);
 }
+
 
 void UGridAction_Move::ShowHoveredVisualization(UHexGridTile* PotentialTarget)
 {
